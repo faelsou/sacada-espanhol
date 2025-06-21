@@ -239,7 +239,16 @@
     },
     {
       "parameters": {
-        "tableId": "daily_message_counter"
+        "tableId": "daily_message_counter",
+        "operation": "insert",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "workflow_id",
+              "fieldValue": "={{ $('Calcular Dia Atual').item.json.whatsapp_id }}"
+            }
+          ]
+        }
       },
       "id": "54c87445-7e96-483f-a52c-e126a56f4182",
       "name": "Log Detalhado",
