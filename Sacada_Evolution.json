@@ -116,7 +116,19 @@
     },
     {
       "parameters": {
-        "tableId": "daily_message_counter"
+        "tableId": "daily_message_counter",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_day",
+              "fieldValue": "1"
+            },
+            {
+              "fieldId": "last_execution",
+              "fieldValue": "={{ $('Calcular Dia Atual').item.json.execution_date }}"
+            }
+          ]
+        }
       },
       "id": "bed57bac-8cae-4ed2-a24d-3d84a3a564eb",
       "name": "Criar Contador Inicial",
@@ -439,7 +451,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "1c319cf7-33f4-4dd5-9ddf-bbe3aafd01f5",
+  "versionId": "ead5af24-20ab-41e1-bdd2-3fd316ce9a90",
   "meta": {
     "instanceId": "07da5975239dfa1c885ebc7e3de37678b54f1a2046d3af021aa5a96fcc99d36f"
   },
