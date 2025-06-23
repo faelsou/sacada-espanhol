@@ -116,7 +116,7 @@
     },
     {
       "parameters": {
-        "operation": "insert"
+        "tableId": "daily_message_counter"
       },
       "id": "bed57bac-8cae-4ed2-a24d-3d84a3a564eb",
       "name": "Criar Contador Inicial",
@@ -239,6 +239,7 @@
     },
     {
       "parameters": {
+        "operation": "getAll",
         "tableId": "daily_message_counter"
       },
       "id": "54c87445-7e96-483f-a52c-e126a56f4182",
@@ -438,7 +439,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "6d01415f-354f-40fa-9436-6bb680ae73bc",
+  "versionId": "1c319cf7-33f4-4dd5-9ddf-bbe3aafd01f5",
   "meta": {
     "instanceId": "07da5975239dfa1c885ebc7e3de37678b54f1a2046d3af021aa5a96fcc99d36f"
   },
