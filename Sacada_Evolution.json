@@ -40,7 +40,7 @@
         "options": {}
       },
       "id": "ee00dfcd-4b39-4f1c-bc56-706a275b282c",
-      "name": "Configurações",
+      "name": "Configura\u00e7\u00f5es",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
@@ -70,7 +70,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const counterData = $input.all()[0];\nlet currentDay = 1;\nlet isFirstRun = false;\n\nif (counterData.json && counterData.json.length > 0) {\n  currentDay = counterData.json[0].current_day + 1;\n} else {\n  isFirstRun = true;\n  currentDay = 1;\n}\n\n// Pega data de início com segurança\nconst config = $input.all().find(item => item.json.start_date);\nconst startDate = config ? new Date(config.json.start_date) : new Date(\"2025-06-17\");\n\nconst hoje = new Date();\nconst diasDecorridos = Math.floor((hoje - startDate) / (1000 * 60 * 60 * 24)) + 1;\n\nreturn [{\n  json: {\n    current_day: currentDay,\n    dias_decorridos: diasDecorridos,\n    is_first_run: isFirstRun,\n    execution_date: hoje.toISOString(),\n    whatsapp_id: \"whatsapp_daily_schedule\",\n  }\n}];\n"
+        "jsCode": "const counterData = $input.all()[0];\nlet currentDay = 1;\nlet isFirstRun = false;\nlet recordId = null;\n\nif (counterData.json && counterData.json.length > 0) {\n  currentDay = counterData.json[0].current_day + 1;\n  recordId = counterData.json[0].id;\n} else {\n  isFirstRun = true;\n  currentDay = 1;\n}\n\n// Pega data de \u00ednicio com seguran\u00e7a\nconst config = $input.all().find(item => item.json.start_date);\nconst startDate = config ? new Date(config.json.start_date) : new Date(\"2025-06-17\");\n\nconst hoje = new Date();\nconst diasDecorridos = Math.floor((hoje - startDate) / (1000 * 60 * 60 * 24)) + 1;\n\nreturn [{\n  json: {\n    current_day: currentDay,\n    dias_decorridos: diasDecorridos,\n    is_first_run: isFirstRun,\n    execution_date: hoje.toISOString(),\n    whatsapp_id: \"whatsapp_daily_schedule\",\n    record_id: recordId,\n  }\n}];\n"
       },
       "id": "6c0b0896-ec98-4acf-b4fd-5dcfa372f96a",
       "name": "Calcular Dia Atual",
@@ -106,7 +106,7 @@
         "options": {}
       },
       "id": "ecb7faf3-baa4-4500-aebe-d7360ba4ad98",
-      "name": "É Primeira Execução?",
+      "name": "\u00c9 Primeira Execu\u00e7\u00e3o?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
@@ -152,14 +152,18 @@
         "filters": {
           "conditions": [
             {
-              "keyName": "current_day",
+              "keyName": "id",
               "condition": "eq",
-              "keyValue": "={{ $json.current_day }}"
+              "keyValue": "={{ $json.record_id }}"
             }
           ]
         },
         "fieldsUi": {
           "fieldValues": [
+            {
+              "fieldId": "current_day",
+              "fieldValue": "={{ $json.current_day }}"
+            },
             {
               "fieldId": "last_execution",
               "fieldValue": "={{ $json.execution_date }}"
@@ -187,7 +191,7 @@
         "operation": "download",
         "fileId": {
           "__rl": true,
-          "value": "={{ $('Configurações').item.json.file_id }}",
+          "value": "={{ $('Configura\u00e7\u00f5es').item.json.file_id }}",
           "mode": "id"
         },
         "options": {
@@ -215,7 +219,7 @@
     },
     {
       "parameters": {
-        "jsCode": "try {\n  // Buscar o dia atual da execução anterior\n  const dayData = $('Calcular Dia Atual').item.json;\n  const currentDay = dayData.current_day;\n  \n  // Processar o conteúdo do Google Docs\n  const binaryData = $input.all()[0].binary.data.data;\n  \n  if (!binaryData) {\n    throw new Error(\"Arquivo não encontrado no Google Drive\");\n  }\n  \n  const fileContent = Buffer.from(binaryData, 'base64').toString('utf-8');\n  \n  // Regex melhorada para extrair mensagens do formato \"Dia X —\"\n  const dayPattern = /Dia\\s*(\\d+)\\s*—([\\s\\S]*?)(?=\\nDia\\s*\\d+\\s*—|$)/gi;\n  const messages = {};\n  let match;\n  \n  while ((match = dayPattern.exec(fileContent)) !== null) {\n    const dayNumber = parseInt(match[1]);\n    const messageContent = match[2].trim();\n    if (messageContent) {\n      messages[dayNumber] = messageContent;\n    }\n  }\n  \n  const totalMessages = Object.keys(messages).length;\n  \n  if (totalMessages === 0) {\n    throw new Error(\"Nenhuma mensagem encontrada no formato 'Dia X —'\");\n  }\n  \n  // Buscar a mensagem do dia atual ou fazer wrap-around\n  let targetDay = currentDay;\n  if (!messages[targetDay]) {\n    // Se não existir o dia específico, usar módulo para wrap-around\n    targetDay = ((currentDay - 1) % totalMessages) + 1;\n    \n    // Se ainda não existir, pegar a primeira mensagem disponível\n    if (!messages[targetDay]) {\n      targetDay = Math.min(...Object.keys(messages).map(Number));\n    }\n  }\n  \n  const selectedMessage = messages[targetDay];\n  \n  // Formatação da mensagem final\n  const formattedMessage = `📘 *Mensagem do Dia ${targetDay}*\\n\\n${selectedMessage}\\n\\n_Enviado automaticamente às 9h_ ⏰`;\n  \n  return [{\n    json: {\n      success: true,\n      current_day: currentDay,\n      target_day: targetDay,\n      original_message: selectedMessage,\n      formatted_message: formattedMessage,\n      total_messages_available: totalMessages,\n      execution_timestamp: new Date().toISOString()\n    }\n  }];\n  \n} catch (error) {\n  // Mensagem de fallback em caso de erro\n  const fallbackMessage = `🤖 *Mensagem Automática*\\n\\n📅 Data: ${new Date().toLocaleDateString('pt-BR')}\\n🕘 Horário: ${new Date().toLocaleTimeString('pt-BR')}\\n\\n✅ Sistema funcionando normalmente.\\n\\n⚠️ Erro técnico: ${error.message}`;\n  \n  return [{\n    json: {\n      success: false,\n      error: error.message,\n      formatted_message: fallbackMessage,\n      current_day: $('Calcular Dia Atual').item.json.current_day,\n      execution_timestamp: new Date().toISOString()\n    }\n  }];\n}"
+        "jsCode": "try {\n  // Buscar o dia atual da execu\u00e7\u00e3o anterior\n  const dayData = $('Calcular Dia Atual').item.json;\n  const currentDay = dayData.current_day;\n  \n  // Processar o conte\u00fado do Google Docs\n  const binaryData = $input.all()[0].binary.data.data;\n  \n  if (!binaryData) {\n    throw new Error(\"Arquivo n\u00e3o encontrado no Google Drive\");\n  }\n  \n  const fileContent = Buffer.from(binaryData, 'base64').toString('utf-8');\n  \n  // Regex melhorada para extrair mensagens do formato \"Dia X \u2014\"\n  const dayPattern = /Dia\\s*(\\d+)\\s*\u2014([\\s\\S]*?)(?=\\nDia\\s*\\d+\\s*\u2014|$)/gi;\n  const messages = {};\n  let match;\n  \n  while ((match = dayPattern.exec(fileContent)) !== null) {\n    const dayNumber = parseInt(match[1]);\n    const messageContent = match[2].trim();\n    if (messageContent) {\n      messages[dayNumber] = messageContent;\n    }\n  }\n  \n  const totalMessages = Object.keys(messages).length;\n  \n  if (totalMessages === 0) {\n    throw new Error(\"Nenhuma mensagem encontrada no formato 'Dia X \u2014'\");\n  }\n  \n  // Buscar a mensagem do dia atual ou fazer wrap-around\n  let targetDay = currentDay;\n  if (!messages[targetDay]) {\n    // Se n\u00e3o existir o dia espec\u00edfico, usar m\u00f3dulo para wrap-around\n    targetDay = ((currentDay - 1) % totalMessages) + 1;\n    \n    // Se ainda n\u00e3o existir, pegar a primeira mensagem dispon\u00edvel\n    if (!messages[targetDay]) {\n      targetDay = Math.min(...Object.keys(messages).map(Number));\n    }\n  }\n  \n  const selectedMessage = messages[targetDay];\n  \n  // Formata\u00e7\u00e3o da mensagem final\n  const formattedMessage = `\ud83d\udcd8 *Mensagem do Dia ${targetDay}*\\n\\n${selectedMessage}\\n\\n_Enviado automaticamente \u00e0s 9h_ \u23f0`;\n  \n  return [{\n    json: {\n      success: true,\n      current_day: currentDay,\n      target_day: targetDay,\n      original_message: selectedMessage,\n      formatted_message: formattedMessage,\n      total_messages_available: totalMessages,\n      execution_timestamp: new Date().toISOString()\n    }\n  }];\n  \n} catch (error) {\n  // Mensagem de fallback em caso de erro\n  const fallbackMessage = `\ud83e\udd16 *Mensagem Autom\u00e1tica*\\n\\n\ud83d\udcc5 Data: ${new Date().toLocaleDateString('pt-BR')}\\n\ud83d\udd58 Hor\u00e1rio: ${new Date().toLocaleTimeString('pt-BR')}\\n\\n\u2705 Sistema funcionando normalmente.\\n\\n\u26a0\ufe0f Erro t\u00e9cnico: ${error.message}`;\n  \n  return [{\n    json: {\n      success: false,\n      error: error.message,\n      formatted_message: fallbackMessage,\n      current_day: $('Calcular Dia Atual').item.json.current_day,\n      execution_timestamp: new Date().toISOString()\n    }\n  }];\n}"
       },
       "id": "bf4b13da-5f10-481d-9241-bf6beb65b0c6",
       "name": "Processar Mensagem do Dia",
@@ -229,8 +233,8 @@
     {
       "parameters": {
         "resource": "messages-api",
-        "instanceName": "={{ $('Configurações').item.json.instance_name }}",
-        "remoteJid": "={{ $('Configurações').item.json.group_jid }}",
+        "instanceName": "={{ $('Configura\u00e7\u00f5es').item.json.instance_name }}",
+        "remoteJid": "={{ $('Configura\u00e7\u00f5es').item.json.group_jid }}",
         "messageText": "={{ $json.formatted_message }}",
         "options_message": {}
       },
@@ -272,15 +276,15 @@
     {
       "parameters": {
         "sendTo": "rafadsouz@gmail.com",
-        "subject": "✅ WhatsApp Enviado - Dia {{ $('Processar Mensagem do Dia').item.json.current_day }} | {{ $now.format('dd/MM/yyyy') }}",
-        "message": "=<h2>📱 Relatório de Envio Automático</h2>\n\n<table border=\"1\" cellpadding=\"8\" cellspacing=\"0\" style=\"border-collapse: collapse; font-family: Arial, sans-serif;\">\n  <tr style=\"background-color: #f0f0f0;\">\n    <td><strong>🕘 Data/Hora</strong></td>\n    <td>{{ $now.format('dd/MM/yyyy HH:mm:ss') }}</td>\n  </tr>\n  <tr>\n    <td><strong>📋 Instância</strong></td>\n    <td>{{ $('Configurações').item.json.instance_name }}</td>\n  </tr>\n  <tr style=\"background-color: #f9f9f9;\">\n    <td><strong>👥 Grupo</strong></td>\n    <td>{{ $('Configurações').item.json.group_jid }}</td>\n  </tr>\n  <tr>\n    <td><strong>📅 Dia Atual</strong></td>\n    <td>{{ $('Processar Mensagem do Dia').item.json.current_day }}</td>\n  </tr>\n  <tr style=\"background-color: #f9f9f9;\">\n    <td><strong>📊 Total Mensagens</strong></td>\n    <td>{{ $('Processar Mensagem do Dia').item.json.total_messages_available }}</td>\n  </tr>\n  <tr>\n    <td><strong>✅ Status</strong></td>\n    <td style=\"color: green;\">Enviado com Sucesso</td>\n  </tr>\n</table>\n\n<h3>📄 Mensagem Enviada:</h3>\n<div style=\"background-color: #e8f5e8; padding: 15px; border-left: 4px solid #4caf50; margin: 10px 0;\">\n  <pre>{{ $('Processar Mensagem do Dia').item.json.original_message }}</pre>\n</div>\n\n<hr>\n<p style=\"font-size: 12px; color: #666;\"><em>Enviado automaticamente pelo sistema N8N</em></p>",
+        "subject": "\u2705 WhatsApp Enviado - Dia {{ $('Processar Mensagem do Dia').item.json.current_day }} | {{ $now.format('dd/MM/yyyy') }}",
+        "message": "=<h2>\ud83d\udcf1 Relat\u00f3rio de Envio Autom\u00e1tico</h2>\n\n<table border=\"1\" cellpadding=\"8\" cellspacing=\"0\" style=\"border-collapse: collapse; font-family: Arial, sans-serif;\">\n  <tr style=\"background-color: #f0f0f0;\">\n    <td><strong>\ud83d\udd58 Data/Hora</strong></td>\n    <td>{{ $now.format('dd/MM/yyyy HH:mm:ss') }}</td>\n  </tr>\n  <tr>\n    <td><strong>\ud83d\udccb Inst\u00e2ncia</strong></td>\n    <td>{{ $('Configura\u00e7\u00f5es').item.json.instance_name }}</td>\n  </tr>\n  <tr style=\"background-color: #f9f9f9;\">\n    <td><strong>\ud83d\udc65 Grupo</strong></td>\n    <td>{{ $('Configura\u00e7\u00f5es').item.json.group_jid }}</td>\n  </tr>\n  <tr>\n    <td><strong>\ud83d\udcc5 Dia Atual</strong></td>\n    <td>{{ $('Processar Mensagem do Dia').item.json.current_day }}</td>\n  </tr>\n  <tr style=\"background-color: #f9f9f9;\">\n    <td><strong>\ud83d\udcca Total Mensagens</strong></td>\n    <td>{{ $('Processar Mensagem do Dia').item.json.total_messages_available }}</td>\n  </tr>\n  <tr>\n    <td><strong>\u2705 Status</strong></td>\n    <td style=\"color: green;\">Enviado com Sucesso</td>\n  </tr>\n</table>\n\n<h3>\ud83d\udcc4 Mensagem Enviada:</h3>\n<div style=\"background-color: #e8f5e8; padding: 15px; border-left: 4px solid #4caf50; margin: 10px 0;\">\n  <pre>{{ $('Processar Mensagem do Dia').item.json.original_message }}</pre>\n</div>\n\n<hr>\n<p style=\"font-size: 12px; color: #666;\"><em>Enviado automaticamente pelo sistema N8N</em></p>",
         "options": {
           "appendAttribution": false,
           "senderName": "Sistema N8N - WhatsApp Scheduler"
         }
       },
       "id": "1ce3b574-78ac-426c-933b-f4c0ea19906e",
-      "name": "Notificação Detalhada",
+      "name": "Notifica\u00e7\u00e3o Detalhada",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
       "position": [
@@ -318,7 +322,7 @@
   ],
   "pinData": {},
   "connections": {
-    "Configurações": {
+    "Configura\u00e7\u00f5es": {
       "main": [
         [
           {
@@ -344,14 +348,14 @@
       "main": [
         [
           {
-            "node": "É Primeira Execução?",
+            "node": "\u00c9 Primeira Execu\u00e7\u00e3o?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "É Primeira Execução?": {
+    "\u00c9 Primeira Execu\u00e7\u00e3o?": {
       "main": [
         [
           {
@@ -428,7 +432,7 @@
       "main": [
         [
           {
-            "node": "Notificação Detalhada",
+            "node": "Notifica\u00e7\u00e3o Detalhada",
             "type": "main",
             "index": 0
           }
@@ -439,7 +443,7 @@
       "main": [
         [
           {
-            "node": "Configurações",
+            "node": "Configura\u00e7\u00f5es",
             "type": "main",
             "index": 0
           }
